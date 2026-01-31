@@ -20,8 +20,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (username: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (username: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -103,23 +103,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+  const signUp = async (username: string, password: string) => {
+    // Generate a fake email from username for Supabase auth
+    const fakeEmail = `${username.toLowerCase()}@skillswap.local`;
     
-    const { error } = await supabase.auth.signUp({
-      email,
+    const { data, error } = await supabase.auth.signUp({
+      email: fakeEmail,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
+        data: {
+          username: username,
+        },
       },
     });
 
     return { error: error as Error | null };
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (username: string, password: string) => {
+    // Generate the same fake email pattern for login
+    const fakeEmail = `${username.toLowerCase()}@skillswap.local`;
+    
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: fakeEmail,
       password,
     });
 

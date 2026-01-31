@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRight, Mail, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
+import { ArrowRight, User, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,7 +11,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 const authSchema = z.object({
-  email: z.string().trim().email({ message: "Please enter a valid email" }).max(255),
+  username: z.string()
+    .trim()
+    .min(3, { message: "Username must be at least 3 characters" })
+    .max(30, { message: "Username must be less than 30 characters" })
+    .regex(/^[a-zA-Z0-9_]+$/, { message: "Username can only contain letters, numbers, and underscores" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }).max(100),
 });
 
@@ -28,7 +32,7 @@ const Auth = () => {
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   });
@@ -38,19 +42,13 @@ const Auth = () => {
     
     try {
       if (isLogin) {
-        const { error } = await signIn(values.email, values.password);
+        const { error } = await signIn(values.username, values.password);
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
             toast({
               variant: "destructive",
               title: "Login failed",
-              description: "Invalid email or password. Please try again.",
-            });
-          } else if (error.message.includes("Email not confirmed")) {
-            toast({
-              variant: "destructive",
-              title: "Email not verified",
-              description: "Please check your inbox and verify your email.",
+              description: "Invalid username or password. Please try again.",
             });
           } else {
             toast({
@@ -63,13 +61,13 @@ const Auth = () => {
           navigate("/");
         }
       } else {
-        const { error } = await signUp(values.email, values.password);
+        const { error } = await signUp(values.username, values.password);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({
               variant: "destructive",
               title: "Sign up failed",
-              description: "This email is already registered. Please log in instead.",
+              description: "This username is already taken. Please choose another.",
             });
           } else {
             toast({
@@ -81,8 +79,9 @@ const Auth = () => {
         } else {
           toast({
             title: "Account created!",
-            description: "Please check your email to verify your account.",
+            description: "You can now complete your profile setup.",
           });
+          navigate("/profile-setup");
         }
       }
     } catch (err) {
@@ -128,18 +127,20 @@ const Auth = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground">Email</FormLabel>
+                    <FormLabel className="text-foreground">Username</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                           {...field}
-                          type="email"
-                          placeholder="Enter your email"
+                          type="text"
+                          placeholder="Enter your username"
                           className="pl-10 h-12 bg-card border-border/50 rounded-xl"
+                          autoCapitalize="none"
+                          autoCorrect="off"
                         />
                       </div>
                     </FormControl>
