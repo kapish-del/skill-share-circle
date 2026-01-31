@@ -7,6 +7,7 @@ import CreditBadge from "@/components/ui/CreditBadge";
 import SkillTag from "@/components/ui/SkillTag";
 import SessionCard from "@/components/ui/SessionCard";
 import RequestCard from "@/components/ui/RequestCard";
+import { useAuth } from "@/contexts/AuthContext";
 
 const hotTopics = [
   "Photography", "Public Speaking", "UI/UX Design", "Python", "Guitar", "Cooking"
@@ -52,13 +53,17 @@ const activeRequests = [
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+
+  const firstName = profile?.name?.split(' ')[0] || 'there';
+  const credits = profile?.credits ?? 0;
 
   return (
     <AppLayout title="Skill Swap">
       <div className="px-4 py-6 space-y-6">
         {/* Welcome section */}
         <div className="animate-fade-in">
-          <h2 className="text-2xl font-bold text-foreground">Hello, Alex! 👋</h2>
+          <h2 className="text-2xl font-bold text-foreground">Hello, {firstName}! 👋</h2>
           <p className="text-muted-foreground mt-1">Ready to learn something new?</p>
         </div>
 
@@ -68,7 +73,7 @@ const Dashboard = () => {
           <div className="relative">
             <p className="text-sm text-muted-foreground">Current Balance</p>
             <div className="flex items-end gap-2 mt-1">
-              <span className="text-4xl font-bold gradient-text">3</span>
+              <span className="text-4xl font-bold gradient-text">{credits}</span>
               <span className="text-lg text-primary mb-1">Credits</span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
