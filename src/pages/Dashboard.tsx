@@ -8,55 +8,66 @@ import SkillTag from "@/components/ui/SkillTag";
 import SessionCard from "@/components/ui/SessionCard";
 import RequestCard from "@/components/ui/RequestCard";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSessions } from "@/hooks/useSessions";
+import { useRequests } from "@/hooks/useRequests";
+import { format, isToday, isTomorrow } from "date-fns";
 
 const hotTopics = [
   "Photography", "Public Speaking", "UI/UX Design", "Python", "Guitar", "Cooking"
 ];
 
-const upcomingSessions = [
-  {
-    tutorName: "Sarah J.",
-    topic: "Intro to UX Design",
-    date: "Today",
-    time: "4:00 PM",
-    duration: "1 hour",
-    status: "upcoming" as const,
-  },
-  {
-    tutorName: "Michael R.",
-    topic: "Advanced Python",
-    date: "Tomorrow",
-    time: "2:00 PM",
-    duration: "45 min",
-    status: "upcoming" as const,
-  },
-];
-
-const activeRequests = [
-  {
-    name: "Spanish Tutor",
-    topic: "Conversational Spanish",
-    message: "Perfect! 2 hours ago",
-    timeAgo: "2h",
-    type: "outgoing" as const,
-    status: "pending" as const,
-  },
-  {
-    name: "Chess Lessons",
-    topic: "Chess Strategy",
-    message: "Posted 1 day ago",
-    timeAgo: "1d",
-    type: "incoming" as const,
-    status: "pending" as const,
-  },
-];
-
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { upcomingSessions, loading: sessionsLoading } = useSessions();
+  const { incomingRequests, outgoingRequests, loading: requestsLoading } = useRequests();
 
   const firstName = profile?.name?.split(' ')[0] || 'there';
   const credits = profile?.credits ?? 0;
+
+  const formatSessionDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    if (isToday(date)) return "Today";
+    if (isTomorrow(date)) return "Tomorrow";
+    return format(date, "MMM d");
+  };
+
+  const formatSessionTime = (dateStr: string) => {
+    return format(new Date(dateStr), "h:mm a");
+  };
+
+  // Combine and format requests for display
+  const activeRequests = [
+    ...incomingRequests.map((req) => ({
+      name: req.learner_profile?.name || "Unknown",
+      topic: req.skill?.name || "General",
+      message: req.message || "New request",
+      timeAgo: getTimeAgo(req.created_at),
+      type: "incoming" as const,
+      status: req.status as "pending",
+    })),
+    ...outgoingRequests.map((req) => ({
+      name: req.tutor_profile?.name || "Unknown",
+      topic: req.skill?.name || "General",
+      message: req.message || "Pending response",
+      timeAgo: getTimeAgo(req.created_at),
+      type: "outgoing" as const,
+      status: req.status as "pending",
+    })),
+  ].slice(0, 4);
+
+  function getTimeAgo(dateStr: string): string {
+    const now = new Date();
+    const date = new Date(dateStr);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${diffDays}d`;
+  }
 
   return (
     <AppLayout title="Skill Swap">
@@ -82,9 +93,10 @@ const Dashboard = () => {
             <Button 
               size="sm" 
               className="mt-3 rounded-full bg-primary hover:bg-primary/90"
+              onClick={() => navigate("/history")}
             >
               <Plus className="h-4 w-4 mr-1" />
-              Top Up
+              View History
             </Button>
           </div>
         </div>
@@ -107,7 +119,12 @@ const Dashboard = () => {
               <TrendingUp className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-foreground">Hot Topics</h3>
             </div>
-            <button className="text-sm text-primary hover:underline">See all</button>
+            <button 
+              className="text-sm text-primary hover:underline"
+              onClick={() => navigate("/search")}
+            >
+              See all
+            </button>
           </div>
           <div className="flex flex-wrap gap-2">
             {hotTopics.map((topic) => (
@@ -125,15 +142,45 @@ const Dashboard = () => {
         <section className="animate-fade-in" style={{ animationDelay: "0.3s" }}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-foreground">Upcoming Sessions</h3>
-            <button className="text-sm text-primary hover:underline flex items-center gap-1">
+            <button 
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+              onClick={() => navigate("/history")}
+            >
               View all
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-3">
-            {upcomingSessions.map((session, i) => (
-              <SessionCard key={i} {...session} />
-            ))}
+            {sessionsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading sessions...</p>
+            ) : upcomingSessions.length === 0 ? (
+              <div className="p-4 rounded-2xl bg-card border border-border/50 text-center">
+                <p className="text-sm text-muted-foreground">No upcoming sessions</p>
+                <Button 
+                  variant="link" 
+                  className="text-primary p-0 h-auto mt-1"
+                  onClick={() => navigate("/search")}
+                >
+                  Find a tutor →
+                </Button>
+              </div>
+            ) : (
+              upcomingSessions.slice(0, 2).map((session) => (
+                <SessionCard 
+                  key={session.id}
+                  tutorName={
+                    session.tutor_id === user?.id 
+                      ? session.learner_profile?.name || "Learner"
+                      : session.tutor_profile?.name || "Tutor"
+                  }
+                  topic={session.skill?.name || "General Session"}
+                  date={formatSessionDate(session.scheduled_at)}
+                  time={formatSessionTime(session.scheduled_at)}
+                  duration={`${session.duration_minutes} min`}
+                  status="upcoming"
+                />
+              ))
+            )}
           </div>
         </section>
 
@@ -144,9 +191,17 @@ const Dashboard = () => {
             <button className="text-sm text-primary hover:underline">See all</button>
           </div>
           <div className="space-y-3">
-            {activeRequests.map((request, i) => (
-              <RequestCard key={i} {...request} />
-            ))}
+            {requestsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading requests...</p>
+            ) : activeRequests.length === 0 ? (
+              <div className="p-4 rounded-2xl bg-card border border-border/50 text-center">
+                <p className="text-sm text-muted-foreground">No active requests</p>
+              </div>
+            ) : (
+              activeRequests.map((request, i) => (
+                <RequestCard key={i} {...request} />
+              ))
+            )}
           </div>
         </section>
 

@@ -1,65 +1,40 @@
 import { useState } from "react";
 import { Search, Filter, Sparkles, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import TutorCard from "@/components/ui/TutorCard";
 import SkillTag from "@/components/ui/SkillTag";
 import CreditBadge from "@/components/ui/CreditBadge";
+import { useTutors } from "@/hooks/useTutors";
 
 const filters = ["Top Rated", "Available Now", "New"];
 
-const tutors = [
-  {
-    name: "Sarah Jenkins",
-    title: "UI/UX Design Expert",
-    skills: ["UI Design", "Figma", "User Research", "Prototyping"],
-    rating: 4.9,
-    sessions: 145,
-    credits: 2,
-    isAvailable: true,
-  },
-  {
-    name: "David Chen",
-    title: "Full Stack Developer",
-    skills: ["React", "Node.js", "Python", "Database Design"],
-    rating: 4.7,
-    sessions: 89,
-    credits: 1,
-    isAvailable: true,
-  },
-  {
-    name: "Elena Rodriguez",
-    title: "Visual Designer",
-    skills: ["Photoshop", "Illustrator", "Brand Design"],
-    rating: 4.8,
-    sessions: 112,
-    credits: 2,
-    isAvailable: false,
-  },
-  {
-    name: "James Wilson",
-    title: "Music Instructor",
-    skills: ["Piano", "Guitar", "Music Theory"],
-    rating: 4.6,
-    sessions: 67,
-    credits: 1,
-    isAvailable: true,
-  },
-];
-
 const SearchTutors = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [activeFilter, setActiveFilter] = useState("Top Rated");
+  
+  const { tutors, loading } = useTutors(searchQuery);
 
-  const filteredTutors = tutors.filter((tutor) =>
-    tutor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tutor.skills.some((skill) => 
-      skill.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  // Apply filters
+  const filteredTutors = tutors.filter((tutor) => {
+    if (activeFilter === "Available Now") {
+      return tutor.availability_status === "available";
+    }
+    return true;
+  }).sort((a, b) => {
+    if (activeFilter === "Top Rated") {
+      return b.rating - a.rating;
+    }
+    if (activeFilter === "New") {
+      return b.session_count - a.session_count; // Reverse for new tutors
+    }
+    return 0;
+  });
 
   return (
     <AppLayout title="Search Tutors">
@@ -97,25 +72,45 @@ const SearchTutors = () => {
 
         {/* Results count */}
         <p className="text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: "0.15s" }}>
-          Showing <span className="text-foreground font-medium">{filteredTutors.length}</span> tutors
-          {searchQuery && ` for "${searchQuery}"`}
+          {loading ? (
+            "Loading tutors..."
+          ) : (
+            <>
+              Showing <span className="text-foreground font-medium">{filteredTutors.length}</span> tutors
+              {searchQuery && ` for "${searchQuery}"`}
+            </>
+          )}
         </p>
 
         {/* Tutor list */}
         <div className="space-y-4">
-          {filteredTutors.map((tutor, i) => (
-            <TutorCard
-              key={tutor.name}
-              {...tutor}
-              onClick={() => navigate(`/tutor/${encodeURIComponent(tutor.name)}`)}
-              className="animate-fade-in"
-              style={{ animationDelay: `${0.2 + i * 0.1}s` } as React.CSSProperties}
-            />
-          ))}
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 rounded-2xl bg-card animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            filteredTutors.map((tutor, i) => (
+              <TutorCard
+                key={tutor.user_id}
+                name={tutor.name}
+                title={tutor.bio?.slice(0, 50) || "Skill Swap Member"}
+                skills={tutor.teach_skills.map((s) => s.name)}
+                rating={tutor.rating}
+                sessions={tutor.session_count}
+                credits={1}
+                isAvailable={tutor.availability_status === "available"}
+                onClick={() => navigate(`/tutor/${tutor.user_id}`)}
+                className="animate-fade-in"
+                style={{ animationDelay: `${0.2 + i * 0.1}s` } as React.CSSProperties}
+              />
+            ))
+          )}
         </div>
 
-        {/* AI Fallback */}
-        {filteredTutors.length === 0 && searchQuery && (
+        {/* No results */}
+        {!loading && filteredTutors.length === 0 && searchQuery && (
           <div className="text-center py-8 animate-fade-in">
             <p className="text-muted-foreground mb-4">No tutors found for "{searchQuery}"</p>
           </div>

@@ -156,6 +156,14 @@ const ProfileSetup = () => {
         throw learnError;
       }
 
+      // Create welcome bonus credit transaction
+      await supabase.from("credit_transactions").insert({
+        user_id: user.id,
+        amount: 3,
+        type: "welcome_bonus",
+        description: "Welcome bonus - Profile completed",
+      });
+
       await refreshProfile();
 
       toast({
